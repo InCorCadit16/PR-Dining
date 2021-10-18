@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Dining
+namespace Dining.Infrastructure.Utils
 {
     public class RandomGenerator
     {

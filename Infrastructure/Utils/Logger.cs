@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 
-namespace Dining
+namespace Dining.Infrastructure.Utils
 {
     class Logger
     {

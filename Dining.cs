@@ -1,7 +1,11 @@
-﻿using Kitchen;
+﻿using Dining.Infrastructure.Seeding;
+using Dining.Infrastructure.Utils;
+using Dining.Models;
+using Dining.Server;
 using Microsoft.Extensions.Hosting;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,106 +16,49 @@ namespace Dining
         public DiningServer server;
 
         public List<Table> tables = new List<Table>();
-        public List<Waiter> waiters;
+        public List<Waiter> waiters = new List<Waiter>();
         public List<Food> menu = new List<Food>();
         public List<Order> orders = new List<Order>();
 
         public Dining(DiningServer server)
         {
-            menu.AddRange(new Food[]
-            {
-                new Food 
-                {
-                    Id = 1,
-                    Name = "Pizza",
-                    PreparitionTime = 20,
-                    Comlexity = 2,
-                    CookingApparatus = CookingApparatus.CookingApparatusType.Oven
-                },
-                new Food
-                {
-                    Id = 2,
-                    Name = "Salad",
-                    PreparitionTime = 10,
-                    Comlexity = 1,
-                    CookingApparatus = null
-                },
-                new Food
-                {
-                    Id = 3,
-                    Name = "Zeama",
-                    PreparitionTime = 7,
-                    Comlexity = 1,
-                    CookingApparatus = CookingApparatus.CookingApparatusType.Stove
-                },
-                new Food
-                {
-                    Id = 4,
-                    Name = "Scallop Sashami with Meyer Lemon Confit",
-                    PreparitionTime = 32,
-                    Comlexity = 3,
-                    CookingApparatus = null
-                },
-                new Food
-                {
-                    Id = 5,
-                    Name = "Island Duck with Mulberry Mustard",
-                    PreparitionTime = 35,
-                    Comlexity = 3,
-                    CookingApparatus = CookingApparatus.CookingApparatusType.Oven
-                },
-                new Food
-                {
-                    Id = 6,
-                    Name = "Waffles",
-                    PreparitionTime = 10,
-                    Comlexity = 1,
-                    CookingApparatus = CookingApparatus.CookingApparatusType.Stove
-                },
-            });
             this.server = server;
-            server.StartAsync(CancellationToken.None);
-            
+            this.server.StartAsync(this);
+            Seeding.SeedMenu(menu);
         }
 
         public void InitTables()
         {
-            tables.AddRange(new Table[]
-            {
-                new Table(),
-                new Table(),
-                new Table(),
-                new Table(),
-                new Table()
-            });
+            Seeding.SeedTables(tables, 5);
 
             foreach (var table in tables)
-            {
                 table.GetClients();
-            }
         }
 
         public void InitWaiters()
         {
-            waiters = new List<Waiter>(new Waiter[]
-            {
-                new Waiter(),
-                new Waiter(),
-                new Waiter(),
-            });
+            Seeding.SeedWaiters(waiters, 3);
 
             foreach (var waiter in waiters)
-            {
-                waiter.StartWaiterWork(tables, menu, orders, server);
-            }
+                waiter.StartWaiterWork(this);
+        }
 
+        public void ServeOrder(Order order)
+        {
+            var table = tables.First(t => t.Id == order.TableId);
+            float waitTime = (DateTime.Now.Ticks - table.orderedAt.Ticks) / (10000 * Values.TIME_UNIT);
 
+            Logger.Log($"Table {table.Id} received order {order.Id}:");
+
+            Assessor.Assess(waitTime, order);
+            orders = orders.Where(o => o.Id != order.Id).ToList();
+            table.State = TableState.NoClient;
+            table.GetClients();
         }
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
             InitTables();
-            // Thread.Sleep(Values.TABLE_WAIT_FOR_CLIENTS_MAX * Values.TIME_UNIT);
             InitWaiters();
             return Task.CompletedTask;
         }
